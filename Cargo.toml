@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+  "services/blog",
+  "services/comment",
+  "services/likes"
+]
+resolver = "3"
+

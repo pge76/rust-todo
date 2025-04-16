@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Blog Title{% endblock %}
+
+{% block main %}
+<h1>Blog Header</h1>
+{% for blog_post in blog_posts %}
+  <section>{{ blog_post }}</section>
+{% endfor %}
+{% endblock %}
