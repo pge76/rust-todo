@@ -2,8 +2,18 @@
 {% block title %}Blog Title{% endblock %}
 
 {% block main %}
+<section id="blog-list">
 <h1>Blog Header</h1>
 {% for blog_post in blog_posts %}
-  <section>{{ blog_post }}</section>
+  <secction>
+    <h3><{{ blog_post.blog_title }}</h3>
+    <p>{{ blog_post.blog_text }}</p>
+  </section>
 {% endfor %}
+<button hx-get="/blog/input" hx-target=".blog_input">
+New Blog
+</button>
+</section>
+<section class="blog_input"></section>
+
 {% endblock %}

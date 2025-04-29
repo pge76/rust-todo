@@ -6,29 +6,44 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use std::sync::{Mutex, OnceLock};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
+use uuid::Uuid;
 
 #[derive(Template)]
 #[template(path = "index.html")]
 struct BlogIndexTemplate<'a> {
-    blog_posts: &'a Vec<String>,
+    blog_posts: &'a Vec<&'a GetPost>,
 }
+
+#[derive(Template)]
+#[template(path = "blog_input.html")]
+struct BlogInputTemplate {}
 
 #[derive(Deserialize)]
 struct AddPost {
-    blog_post: String,
+    blog_title: String,
+    blog_text: String,
 }
 
-fn blog_post_storage() -> &'static Mutex<Vec<String>> {
-    static BLOG_POSTS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
-    BLOG_POSTS.get_or_init(|| Mutex::new(vec![]))
+struct GetPost {
+    blog_title: String,
+    blog_text: String,
+}
+
+fn blog_post_storage() -> &'static Mutex<HashMap<Uuid, GetPost>> {
+    static BLOG_POSTS: OnceLock<Mutex<HashMap<Uuid, GetPost>>> = OnceLock::new();
+    BLOG_POSTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 #[tokio::main]
 async fn main() {
     let app = Router::new()
-        .route("/", get(get_blog_posts))
-        .route("/     add", post(add_blog_post));
+        .route("/blog", get(get_blog_posts))
+        .route("/blog", post(add_blog_post))
+        .route("/blog/input", get(get_blog_post_input));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
@@ -41,6 +56,7 @@ async fn main() {
 /// GET's all the blog posts
 async fn get_blog_posts() -> Html<String> {
     let blog_posts = blog_post_storage().lock().unwrap();
+    let blog_posts: Vec<&GetPost> = blog_posts.values().collect();
     let template = BlogIndexTemplate {
         blog_posts: &blog_posts,
     };
@@ -48,8 +64,22 @@ async fn get_blog_posts() -> Html<String> {
 }
 
 /// POST's a new Blog Post
-async fn add_blog_post(Form(input): Form<AddPost>) -> StatusCode {
+async fn add_blog_post(Form(input): Form<AddPost>) -> Html<String> {
     let mut blog_posts = blog_post_storage().lock().unwrap();
-    blog_posts.push(input.blog_post);
-    StatusCode::SEE_OTHER
+    let post = GetPost {
+        blog_title: input.blog_title,
+        blog_text: input.blog_text,
+    };
+    blog_posts.insert(Uuid::new_v4(), post);
+    let blog_posts: Vec<&GetPost> = blog_posts.values().collect();
+    let template = BlogIndexTemplate {
+        blog_posts: &blog_posts,
+    };
+    Html(template.render().unwrap())
+}
+
+/// GET's a blog formular to input a new blog
+async fn get_blog_post_input() -> Html<String> {
+    let template = BlogInputTemplate {};
+    Html(template.render().unwrap())
 }
