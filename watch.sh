@@ -1,0 +1,1 @@
+watchexec -r -e rs,html -- cargo run --bin blog

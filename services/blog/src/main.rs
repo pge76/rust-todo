@@ -12,6 +12,8 @@ use std::{
 };
 use uuid::Uuid;
 
+/// Templates ///
+
 #[derive(Template)]
 #[template(path = "index.html")]
 struct BlogIndexTemplate<'a> {
@@ -22,25 +24,32 @@ struct BlogIndexTemplate<'a> {
 #[template(path = "blog_input.html")]
 struct BlogInputTemplate {}
 
+/// Data Structures / Value Objects ///
+
 #[derive(Deserialize)]
 struct AddPost {
     blog_title: String,
     blog_text: String,
 }
 
+#[derive(Deserialize)]
 struct GetPost {
     blog_title: String,
     blog_text: String,
 }
 
+/// Storage /// temporary storage for blog posts, just a HashMap
 fn blog_post_storage() -> &'static Mutex<HashMap<Uuid, GetPost>> {
     static BLOG_POSTS: OnceLock<Mutex<HashMap<Uuid, GetPost>>> = OnceLock::new();
     BLOG_POSTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Main function ///
+
 #[tokio::main]
 async fn main() {
     let app = Router::new()
+        .route("/", get(get_blog_posts))
         .route("/blog", get(get_blog_posts))
         .route("/blog", post(add_blog_post))
         .route("/blog/input", get(get_blog_post_input));
@@ -64,8 +73,12 @@ async fn get_blog_posts() -> Html<String> {
 }
 
 /// POST's a new Blog Post
-async fn add_blog_post(Form(input): Form<AddPost>) -> Html<String> {
+async fn add_blog_post(Form(input): Form<AddPost>) -> Result<Html<String>, StatusCode> {
+    if input.blog_title.trim().is_empty() || input.blog_text.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
     let mut blog_posts = blog_post_storage().lock().unwrap();
+
     let post = GetPost {
         blog_title: input.blog_title,
         blog_text: input.blog_text,
@@ -75,7 +88,10 @@ async fn add_blog_post(Form(input): Form<AddPost>) -> Html<String> {
     let template = BlogIndexTemplate {
         blog_posts: &blog_posts,
     };
-    Html(template.render().unwrap())
+    template
+        .render()
+        .map(Html)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 /// GET's a blog formular to input a new blog
